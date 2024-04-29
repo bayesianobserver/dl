@@ -11,6 +11,23 @@ from utils import CfgNode as CN
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
+import os
+
+def ensure_directory_exists(path):
+    """
+    Check if a directory exists at the specified path; if not, create it.
+
+    Args:
+    path (str): The path to the directory to check and potentially create.
+
+    Returns:
+    None
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print(f"Directory created at {path}")
+    else:
+        print(f"Directory already exists at {path}")
 
 
 class Trainer:
@@ -33,6 +50,9 @@ class Trainer:
         C.weight_decay = 0.1 # only applied on matmul weights
         C.grad_norm_clip = 1.0
         C.eval_iters = 500
+        C.checkpoint_iter_num = 500
+        C.checkpoint_path = "./checkpoints/"
+        C.resume = False
         return C
 
     def __init__(self, config, model, train_dataset, test_dataset):
@@ -44,6 +64,9 @@ class Trainer:
         self.callbacks = defaultdict(list)
         self.eval_iters = config.eval_iters
         self.batch_size = config.batch_size
+        self.checkpoint_iter_num = config.checkpoint_iter_num
+        self.checkpoint_path = config.checkpoint_path
+        self.resume = config.resume
 
         # determine the device we'll train on
         if config.device == 'auto':
@@ -71,11 +94,21 @@ class Trainer:
 
 
     def run(self):
-        model, config = self.model, self.config
-
-        # setup the optimizer (basically separates params that don't need weight decay from those that do)
+        config = self.config
+        model = self.model
         self.optimizer = model.configure_optimizers(config)
 
+        # check if we are supposed to resume training from a checkpoint
+        if self.resume and self.checkpoint_path is not None: 
+            checkpoint = torch.load(self.checkpoint_path)
+            model.load_state_dict(checkpoint['model_state'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+            self.iter_num = checkpoint['iters'] + 1
+            print(f"Resuming training from epoch {self.iter_num}")
+        else: 
+            self.iter_num = 0 
+        
+        
         # Create a tensorboard SummaryWriter object
         writer = SummaryWriter()
 
@@ -99,7 +132,6 @@ class Trainer:
             drop_last=True  
         )
 
-        self.iter_num = 0
         self.iter_time = time.time()
         data_iter = iter(train_loader)
         self.train_losses = []
@@ -145,12 +177,25 @@ class Trainer:
                         if b > len(test_losses):
                             break
 
-                print("iter_num", self.iter_num, " train_loss:", np.mean(train_losses), ", test_loss: ", np.mean(test_losses))
+                print("iter_num", self.iter_num, " train_loss:", np.mean(train_losses), ", test_loss: ", np.mean(test_losses), ", last batch loss:", self.loss.item())
                 self.test_losses.append([self.iter_num, np.mean(test_losses)])
                 self.train_losses.append([self.iter_num, np.mean(train_losses)])
                 writer.add_scalar("train/loss", np.mean(train_losses), self.iter_num)
                 writer.add_scalar("validation/loss", np.mean(test_losses), self.iter_num)
                 writer.add_scalar("batch/loss", self.loss.item(), self.iter_num)
+
+            if self.iter_num % self.checkpoint_iter_num == 0: 
+                # Create the path if it doesn't exist
+                ensure_directory_exists(self.checkpoint_path)
+
+                # Save checkpoint after each 'checkpoint_iter_num' iterations
+                checkpoint = {
+                    'iters': self.iter_num,
+                    'model_state': model.state_dict(),
+                    'optimizer_state': self.optimizer.state_dict()
+                }
+                torch.save(checkpoint, f'{self.checkpoint_path}_iters_{self.iter_num}.pth')
+                print(f'Checkpoint saved at iter {self.iter_num}')
 
 
             # termination conditions
