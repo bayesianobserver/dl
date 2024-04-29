@@ -9,6 +9,9 @@ import torch
 from torch.utils.data.dataloader import DataLoader
 from utils import CfgNode as CN
 import numpy as np
+import torch
+from torch.utils.tensorboard import SummaryWriter
+
 
 class Trainer:
 
@@ -40,6 +43,7 @@ class Trainer:
         self.test_dataset = test_dataset
         self.callbacks = defaultdict(list)
         self.eval_iters = config.eval_iters
+        self.batch_size = config.batch_size
 
         # determine the device we'll train on
         if config.device == 'auto':
@@ -72,6 +76,9 @@ class Trainer:
         # setup the optimizer (basically separates params that don't need weight decay from those that do)
         self.optimizer = model.configure_optimizers(config)
 
+        # Create a tensorboard SummaryWriter object
+        writer = SummaryWriter()
+
         # setup the dataloader
         train_loader = DataLoader(
             self.train_dataset,
@@ -98,7 +105,6 @@ class Trainer:
         self.train_losses = []
         self.test_losses = []
         while True:
-
             model.train()
             # fetch the next batch (x, y) and re-init iterator if needed
             try:
@@ -136,10 +142,19 @@ class Trainer:
                     for b, (x_train_batch, y_train_batch) in enumerate(train_loader):
                         train_preds, train_loss = model(x_train_batch, y_train_batch)
                         train_losses.append(train_loss)
+                        if b > len(test_losses):
+                            break
+
                 print("iter_num", self.iter_num, " train_loss:", np.mean(train_losses), ", test_loss: ", np.mean(test_losses))
                 self.test_losses.append([self.iter_num, np.mean(test_losses)])
                 self.train_losses.append([self.iter_num, np.mean(train_losses)])
+                writer.add_scalar("train/loss", np.mean(train_losses), self.iter_num)
+                writer.add_scalar("validation/loss", np.mean(test_losses), self.iter_num)
+                writer.add_scalar("batch/loss", self.loss.item(), self.iter_num)
+
 
             # termination conditions
             if config.max_iters is not None and self.iter_num >= config.max_iters:
                 break
+
+        writer.flush()
