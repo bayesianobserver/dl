@@ -8,7 +8,6 @@ from collections import defaultdict
 import torch
 from torch.utils.data.dataloader import DataLoader
 from utils import CfgNode as CN
-import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import os
@@ -182,16 +181,16 @@ class Trainer:
                         if b > len(test_losses):
                             break
 
-                if self.device == 'cuda':
-                    train_losses = train_losses.cpu()
-                    test_losses = test_losses.cpu()
-                    
-                print("iter_num", self.iter_num, " train_loss:", np.mean(train_losses), ", test_loss: ", np.mean(test_losses), ", last batch loss:", self.loss.item())
-                self.test_losses.append([self.iter_num, np.mean(test_losses)])
-                self.train_losses.append([self.iter_num, np.mean(train_losses)])
-                writer.add_scalar("train/loss", np.mean(train_losses), self.iter_num)
-                writer.add_scalar("validation/loss", np.mean(test_losses), self.iter_num)
-                writer.add_scalar("batch/loss", self.loss.item(), self.iter_num)
+                mean_training_loss = torch.tensor(train_losses).mean().item()
+                mean_test_loss = torch.tensor(test_losses).mean().item()
+                batch_loss = self.loss.item()
+
+                print("iter_num", self.iter_num, " train_loss:", mean_training_loss, ", test_loss: ", mean_test_loss, ", last batch loss:", batch_loss)
+                self.train_losses.append([self.iter_num, mean_training_loss])
+                self.test_losses.append([self.iter_num, mean_test_loss])
+                writer.add_scalar("train/loss", mean_training_loss, self.iter_num)
+                writer.add_scalar("validation/loss", mean_test_loss, self.iter_num)
+                writer.add_scalar("batch/loss", batch_loss, self.iter_num)
 
             if self.iter_num % self.checkpoint_iter_num == 0: 
                 # Create the path if it doesn't exist
