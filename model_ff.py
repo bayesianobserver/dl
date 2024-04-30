@@ -20,6 +20,13 @@ class NewGELU(nn.Module):
         return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
 
 
+def weighted_mse_loss(inputs, targets, weights=None):
+    if weights == None: 
+        weights = torch.ones(len(inputs)) 
+    return (weights * (inputs - targets)**2).mean()
+
+
+
 class ffmodel(nn.Module):
     """ Feedforward Neural Network """
 
@@ -55,7 +62,7 @@ class ffmodel(nn.Module):
             torch.nn.init.zeros_(module.bias)
             torch.nn.init.ones_(module.weight)
 
-    def forward(self, x, targets=None):
+    def forward(self, x, targets=None, weights=None):
         x = self.linear1(x)
         x = self.act(x)
         if self.use_dropout:
@@ -74,8 +81,10 @@ class ffmodel(nn.Module):
         loss = None
         if targets is not None:
             x = x.squeeze()
-            loss_function = nn.MSELoss()
-            loss = loss_function(x, targets)
+            #loss_function = nn.MSELoss()
+            if weights is None:
+                weights = torch.ones(size = x.size())
+            loss = weighted_mse_loss(inputs = x, targets = targets, weights = weights)
         return x, loss
 
 
