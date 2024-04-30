@@ -40,7 +40,7 @@ class ffmodel(nn.Module):
         self.linear3 = nn.Linear(config.input_size * 3, config.input_size * 2)
         self.linear4 = nn.Linear(config.input_size * 2, 1)
         self.dropout = nn.Dropout(config.p_drop)
-        self.act = nn.ReLU()
+        self.act = NewGELU()
         
         #self.apply(self._init_weights)
         

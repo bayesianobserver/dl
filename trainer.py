@@ -137,6 +137,7 @@ class Trainer:
         self.train_losses = []
         self.test_losses = []
         while True:
+            
             model.train()
             # fetch the next batch (x, y) and re-init iterator if needed
             try:
@@ -194,7 +195,7 @@ class Trainer:
                     'model_state': model.state_dict(),
                     'optimizer_state': self.optimizer.state_dict()
                 }
-                torch.save(checkpoint, f'{self.checkpoint_path}_iters_{self.iter_num}.pth')
+                torch.save(checkpoint, f'{self.checkpoint_path}_iters_{time.time()}_{self.iter_num}.pth')
                 print(f'Checkpoint saved at iter {self.iter_num}')
 
 
