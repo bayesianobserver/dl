@@ -182,6 +182,10 @@ class Trainer:
                         if b > len(test_losses):
                             break
 
+                if self.device == 'cuda':
+                    train_losses = train_losses.cpu()
+                    test_losses = test_losses.cpu()
+                    
                 print("iter_num", self.iter_num, " train_loss:", np.mean(train_losses), ", test_loss: ", np.mean(test_losses), ", last batch loss:", self.loss.item())
                 self.test_losses.append([self.iter_num, np.mean(test_losses)])
                 self.train_losses.append([self.iter_num, np.mean(train_losses)])
