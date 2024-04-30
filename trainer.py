@@ -137,7 +137,7 @@ class Trainer:
         self.train_losses = []
         self.test_losses = []
         while True:
-            
+
             model.train()
             # fetch the next batch (x, y) and re-init iterator if needed
             try:
@@ -170,9 +170,13 @@ class Trainer:
                 train_losses = []
                 with torch.inference_mode():
                     for b, (x_test_batch, y_test_batch) in enumerate(test_loader):
+                        x_test_batch = x_test_batch.to(self.device)
+                        y_test_batch = y_test_batch.to(self.device)
                         test_preds, test_loss = model(x_test_batch, y_test_batch)
                         test_losses.append(test_loss)
                     for b, (x_train_batch, y_train_batch) in enumerate(train_loader):
+                        x_train_batch = x_train_batch.to(self.device)
+                        y_train_batch = y_train_batch.to(self.device)
                         train_preds, train_loss = model(x_train_batch, y_train_batch)
                         train_losses.append(train_loss)
                         if b > len(test_losses):
